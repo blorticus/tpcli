@@ -8,6 +8,44 @@ The UI is terminal-based, and presents three panels stacked one atop the other. 
 
 # As a golang Module
 
+First, the tpcli is constructed, then started in a goroutine.  The UI goroutine will send both errors and user-inputed command strings over a channel.  The contents of the command input panel can be changed from the connecting application, and additional text can be added to either the ouptut panel and the error panel.  If the error panel is set to a command history, any output sent to the error panel is redirected to the output panel instead.
+
+```golang
+package main
+
+import "github.com/blorticus/tpcli"
+
+func main() {
+    ui := NewTpcli().UsingStackingOrder(tpcli.CommandGeneralError)
+    channelOfCommandsFromUI := ui.ChannelOfControlMessagesFromTheUI()
+    go ui.Start()
+
+    for {
+        controlMessage := <-channelOfCommandsFromUI
+
+        switch controlMessage.Type {
+        case tpcli.Error:
+            handleErrorText(controlMessage.Body)
+
+        case tpcli.UserSuppliedCommandString:
+            switch controlMessage.Body {
+            case "whoami":
+                ui.AddStringToGeneralOutput("You are yourself and all and yet nobody")
+
+            case "where am i":
+                ui.AddStringToGeneralOutput("It seems likely that you are exactly where you are")
+
+            case "quit":
+                ui.Stop()
+
+            default:
+                ui.AddStringToErrorOutput("Command not understood.  Do try again.")
+            }
+        }
+    }
+}
+```
+
 # As an Application
 
 If the three-panel CLI is run as an application, it will bind to and listen on either a Unix (SOCK_STREAM) socket or a TCP socket.  Messages are delivered over this socket.  Messages sent from the application are commands that have been fully input (that is, some text was entered in the command input panel, and the user hit enter).  Messages to the application are output to general output or the error ouput box (if the box isn't a command-history).  A message has the following format (network byte order):
