@@ -40,6 +40,7 @@ type Tpcli struct {
 	commandInputPanel             *commandInputPanel
 	generalOutputPanel            *outputPanel
 	errorOrHistoryPanel           *outputPanel
+	isUsingAHistoryPanel          bool
 	userInputStringChannel        chan string
 	panelTypesInOrder             []panelTypes
 	functionToExecuteAfterUIExits func()
@@ -51,6 +52,7 @@ func NewUI() *Tpcli {
 		userInputStringChannel:        make(chan string, 10),
 		panelTypesInOrder:             []panelTypes{generalOutputPanel, errorOrHistoryPanel, commandPanel},
 		functionToExecuteAfterUIExits: func() { os.Exit(0) },
+		isUsingAHistoryPanel:          false,
 	}
 
 	ui.createTviewApplication().
@@ -91,6 +93,7 @@ func (ui *Tpcli) OnUIExit(functionToExecuteAfterUIExits func()) *Tpcli {
 
 // UsingCommandHistoryPanel is
 func (ui *Tpcli) UsingCommandHistoryPanel() *Tpcli {
+	ui.isUsingAHistoryPanel = true
 	return ui
 }
 
@@ -119,14 +122,18 @@ func (ui *Tpcli) ReplaceCommandStringWith(newString string) {
 	ui.commandInputPanel.ChangeCommandStringTo(newString)
 }
 
-// AddStringToGeneralOutput is
-func (ui *Tpcli) AddStringToGeneralOutput(additionalContent string) {
+// AddToGeneralOutputText is
+func (ui *Tpcli) AddToGeneralOutputText(additionalContent string) {
 	ui.generalOutputPanel.AppendText(additionalContent)
 }
 
-// AddStringToErrorOutput is
-func (ui *Tpcli) AddStringToErrorOutput(additionalContent string) {
-	ui.generalOutputPanel.AppendText(additionalContent)
+// AddToErrorText is
+func (ui *Tpcli) AddToErrorText(additionalContent string) {
+	if ui.isUsingAHistoryPanel {
+		ui.generalOutputPanel.AppendText(additionalContent)
+	} else {
+		ui.errorOrHistoryPanel.AppendText(additionalContent)
+	}
 }
 
 func (ui *Tpcli) createTviewApplication() *Tpcli {
@@ -140,10 +147,18 @@ func (ui *Tpcli) sendNextInputCommandToChannelWithoutBlocking(commandText string
 
 func (ui *Tpcli) createCommandInputPanel() *Tpcli {
 	ui.commandInputPanel = newCommandInputPanel(ui.tviewApplication)
-	ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
-		go func() { ui.userInputStringChannel <- command }()
-		ui.errorOrHistoryPanel.AppendText(command)
-	})
+
+	if ui.isUsingAHistoryPanel {
+		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+			ui.sendNextInputCommandToChannelWithoutBlocking(command)
+			ui.errorOrHistoryPanel.AppendText(command)
+		})
+	} else {
+		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+			ui.sendNextInputCommandToChannelWithoutBlocking(command)
+		})
+	}
+
 	return ui
 }
 
@@ -262,9 +277,7 @@ func (panel *commandInputPanel) WhenACommandIsEntered(doThis func(commandWithout
 }
 
 func (panel *commandInputPanel) ChangeCommandStringTo(newString string) {
-	// XXX: this doesn't work
 	panel.tviewInputField.SetText(newString)
-	panel.parentTviewApplication.Draw()
 }
 
 func (panel *commandInputPanel) createPanelTviewInputField() {

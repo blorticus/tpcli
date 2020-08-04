@@ -13,6 +13,7 @@ func main() {
 
 	for {
 		command := <-commandInputTextChannel
-		ui.AddStringToGeneralOutput("Command: " + command)
+		ui.AddToGeneralOutputText("Command: " + command)
+		ui.AddToErrorText("ECommand: " + command)
 	}
 }
