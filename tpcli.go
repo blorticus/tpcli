@@ -2,7 +2,8 @@ package tpcli
 
 import (
 	"fmt"
-	"log"
+	"os"
+	"strings"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -25,51 +26,66 @@ type panelTypes int
 
 const (
 	commandPanel panelTypes = iota
-	errorPanel
+	errorOrHistoryPanel
 	commandHistoryPanel
 	generalOutputPanel
 )
 
-// ControlMessageType is
-type ControlMessageType int
-
-// ControlMessage types
-const (
-	Error ControlMessageType = iota
-	UserSuppliedCommandString
-	ReplacementForCommandStringValue
-	AdditionalGeneralOutput
-	AdditionalErrorOutput
-)
-
-// ControlMessage is
-type ControlMessage struct {
-	Type ControlMessageType
-	Body string
-}
-
-// Tpcli is
+// Tpcli provides a TUI based text interface.  It has a command
+// entry box with basic EMACS-like control keys (^k, ^a, ^e, ^b) used with a bash
+// shell.  Another box shows the last 10 commands entered.  A third box is used for
+// general output from the application logic.
 type Tpcli struct {
-	stackingOrder          StackingOrder
-	tviewApplication       *tview.Application
-	userCommandInputPanel  *commandInputPanel
-	errorOutputPanel       *outputPanel
-	generalOutputPanel     *outputPanel
-	userInputStringChannel chan string
-	debugLogger            *log.Logger
-	//userCommandHistoryTextView *tview.TextView
+	tviewApplication              *tview.Application
+	commandInputPanel             *commandInputPanel
+	generalOutputPanel            *outputPanel
+	errorOrHistoryPanel           *outputPanel
+	userInputStringChannel        chan string
+	panelTypesInOrder             []panelTypes
+	functionToExecuteAfterUIExits func()
 }
 
-// NewTpcli does
-func NewTpcli() *Tpcli {
-	return &Tpcli{
-		stackingOrder: GeneralErrorCommand,
+// NewUI constructs the UI interface elements
+func NewUI() *Tpcli {
+	ui := &Tpcli{
+		userInputStringChannel:        make(chan string, 10),
+		panelTypesInOrder:             []panelTypes{generalOutputPanel, errorOrHistoryPanel, commandPanel},
+		functionToExecuteAfterUIExits: func() { os.Exit(0) },
 	}
+
+	ui.createTviewApplication().
+		createPanelForErrorOrCommandHistory().
+		createCommandInputPanel().
+		createGeneralOutputPanel().
+		composeIntoUIGridUsingStackOrder(ui.panelTypesInOrder).
+		addGlobalKeybindings()
+
+	return ui
 }
 
-// UsingStackingOrder is
-func (ui *Tpcli) UsingStackingOrder(order StackingOrder) *Tpcli {
-	ui.stackingOrder = order
+// ChangeStackingOrderTo changes the panel stacking order to the provided ordering
+func (ui *Tpcli) ChangeStackingOrderTo(newOrder StackingOrder) *Tpcli {
+	switch newOrder {
+	case CommandErrorGeneral:
+		ui.panelTypesInOrder = []panelTypes{commandPanel, errorOrHistoryPanel, generalOutputPanel}
+	case CommandGeneralError:
+		ui.panelTypesInOrder = []panelTypes{commandPanel, generalOutputPanel, errorOrHistoryPanel}
+	case GeneralCommandError:
+		ui.panelTypesInOrder = []panelTypes{generalOutputPanel, commandPanel, errorOrHistoryPanel}
+	case GeneralErrorCommand:
+		ui.panelTypesInOrder = []panelTypes{generalOutputPanel, errorOrHistoryPanel, commandPanel}
+	case ErrorCommandGeneral:
+		ui.panelTypesInOrder = []panelTypes{errorOrHistoryPanel, commandPanel, generalOutputPanel}
+	case ErrorGeneralCommand:
+		ui.panelTypesInOrder = []panelTypes{errorOrHistoryPanel, generalOutputPanel, commandPanel}
+	}
+
+	return ui
+}
+
+// OnUIExit is
+func (ui *Tpcli) OnUIExit(functionToExecuteAfterUIExits func()) *Tpcli {
+	ui.functionToExecuteAfterUIExits = functionToExecuteAfterUIExits
 	return ui
 }
 
@@ -80,96 +96,100 @@ func (ui *Tpcli) UsingCommandHistoryPanel() *Tpcli {
 
 // Start is
 func (ui *Tpcli) Start() {
+	go ui.tviewApplication.Run()
+}
 
+func (ui *Tpcli) exit() {
+	ui.Stop()
+	ui.functionToExecuteAfterUIExits()
 }
 
 // Stop is
 func (ui *Tpcli) Stop() {
+	ui.tviewApplication.Stop()
 }
 
-// ChannelOfControlMessagesFromTheUI is
-func (ui *Tpcli) ChannelOfControlMessagesFromTheUI() <-chan *ControlMessage {
-	return nil
+// ChannelOfEnteredCommands is
+func (ui *Tpcli) ChannelOfEnteredCommands() <-chan string {
+	return ui.userInputStringChannel
 }
 
 // ReplaceCommandStringWith is
 func (ui *Tpcli) ReplaceCommandStringWith(newString string) {
-
+	ui.commandInputPanel.ChangeCommandStringTo(newString)
 }
 
 // AddStringToGeneralOutput is
 func (ui *Tpcli) AddStringToGeneralOutput(additionalContent string) {
-
+	ui.generalOutputPanel.AppendText(additionalContent)
 }
 
 // AddStringToErrorOutput is
 func (ui *Tpcli) AddStringToErrorOutput(additionalContent string) {
-
+	ui.generalOutputPanel.AppendText(additionalContent)
 }
 
-func (ui *Tpcli) buildTviewUIBasedOnStackingOrder() *Tpcli {
+func (ui *Tpcli) createTviewApplication() *Tpcli {
 	ui.tviewApplication = tview.NewApplication()
-
-	switch ui.stackingOrder {
-	case CommandErrorGeneral:
-		ui.addCommandInputPanel().
-			addErrorPanel().
-			addGeneralOutputPanel().
-			composeIntoUIGrid([]panelTypes{commandPanel, errorPanel, generalOutputPanel})
-	}
-
-	ui.addGlobalKeybindings()
-
 	return ui
 }
 
-func (ui *Tpcli) addCommandInputPanel() *Tpcli {
-	ui.userCommandInputPanel = newCommandInputPanel(ui.tviewApplication)
+func (ui *Tpcli) sendNextInputCommandToChannelWithoutBlocking(commandText string) {
+	go func() { ui.userInputStringChannel <- commandText }()
+}
+
+func (ui *Tpcli) createCommandInputPanel() *Tpcli {
+	ui.commandInputPanel = newCommandInputPanel(ui.tviewApplication)
+	ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+		go func() { ui.userInputStringChannel <- command }()
+		ui.errorOrHistoryPanel.AppendText(command)
+	})
 	return ui
 }
 
-func (ui *Tpcli) addErrorPanel() *Tpcli {
-	ui.errorOutputPanel = newOutputPanel(ui.tviewApplication)
-	return ui
-}
-
-func (ui *Tpcli) addGeneralOutputPanel() *Tpcli {
+func (ui *Tpcli) createGeneralOutputPanel() *Tpcli {
 	ui.generalOutputPanel = newOutputPanel(ui.tviewApplication)
 	return ui
 }
 
-func (ui *Tpcli) addCommandHistoryPanel() *Tpcli {
+func (ui *Tpcli) createPanelForErrorOrCommandHistory() *Tpcli {
+	ui.errorOrHistoryPanel = newOutputPanel(ui.tviewApplication).SetTitleTo("Command History")
 	return ui
 }
 
-func (ui *Tpcli) composeIntoUIGrid(orderedListOfPanelsForLayout []panelTypes) *Tpcli {
+func (ui *Tpcli) composeIntoUIGridUsingStackOrder(panelOrderByType []panelTypes) *Tpcli {
 	grid := tview.NewGrid()
 
-	gridRowSizes := make([]int, 3)
+	rowSizes := make([]int, 3)
 
-	for i, panelType := range orderedListOfPanelsForLayout {
+	for i, panelType := range panelOrderByType {
 		switch panelType {
-		case commandPanel:
-			gridRowSizes[i] = 1
-			grid.AddItem(ui.userCommandInputPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, true)
-
-		case errorPanel:
-			gridRowSizes[i] = 10
-			grid.AddItem(ui.errorOutputPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, false)
-
-		case commandHistoryPanel:
-			gridRowSizes[i] = 10
-			grid.AddItem(ui.errorOutputPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, false)
-
 		case generalOutputPanel:
-			gridRowSizes[i] = 0
-			grid.AddItem(ui.errorOutputPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, false)
+			rowSizes[i] = 0
+
+		case errorOrHistoryPanel:
+			rowSizes[i] = 12
+
+		case commandPanel:
+			rowSizes[i] = 3
 		}
 	}
 
 	grid.
-		SetRows(gridRowSizes...).
+		SetRows(rowSizes...).
 		SetColumns(0)
+
+	// The SetRows() must be completed before laying these out
+	for i, panelType := range panelOrderByType {
+		switch panelType {
+		case generalOutputPanel:
+			grid.AddItem(ui.generalOutputPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, false)
+		case errorOrHistoryPanel:
+			grid.AddItem(ui.errorOrHistoryPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, false)
+		case commandPanel:
+			grid.AddItem(ui.commandInputPanel.BackingTviewObject(), i, 0, 1, 1, 0, 0, true)
+		}
+	}
 
 	ui.tviewApplication.SetRoot(grid, true)
 
@@ -179,20 +199,20 @@ func (ui *Tpcli) composeIntoUIGrid(orderedListOfPanelsForLayout []panelTypes) *T
 func (ui *Tpcli) addGlobalKeybindings() *Tpcli {
 	ui.tviewApplication.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		// case tcell.KeyTab:
-		// 	switch ui.tviewApplication.GetFocus() {
-		// 	case ui.userCommandHistoryTextView:
-		// 		ui.tviewApplication.SetFocus(ui.userCommandInputField)
-		// 	case ui.userCommandInputField:
-		// 		ui.tviewApplication.SetFocus(ui.eventOutputTextView)
-		// 	default:
-		// 		ui.tviewApplication.SetFocus(ui.userCommandHistoryTextView)
-		// 	}
-		// 	return nil
+		case tcell.KeyTab:
+			switch ui.tviewApplication.GetFocus() {
+			case ui.errorOrHistoryPanel.BackingTviewObject():
+				ui.tviewApplication.SetFocus(ui.commandInputPanel.BackingTviewObject())
+			case ui.commandInputPanel.BackingTviewObject():
+				ui.tviewApplication.SetFocus(ui.generalOutputPanel.BackingTviewObject())
+			default:
+				ui.tviewApplication.SetFocus(ui.errorOrHistoryPanel.BackingTviewObject())
+			}
+			return nil
 		case tcell.KeyESC:
-			ui.Exit()
+			ui.exit()
 		case tcell.KeyCtrlQ:
-			ui.Exit()
+			ui.exit()
 		}
 
 		return event
@@ -201,35 +221,18 @@ func (ui *Tpcli) addGlobalKeybindings() *Tpcli {
 	return ui
 }
 
-// func (ui *TestHarnessTextUI) sendNextInputCommandToChannelWithoutBlocking(commandText string) {
-// 	go func() { ui.userInputStringChannel <- commandText }()
-// }
-
-// // UserInputStringCommandChannel retrieves a string channel that will contain user input
-// // provided in the command input box
-// func (ui *TestHarnessTextUI) UserInputStringCommandChannel() <-chan string {
-// 	return ui.userInputStringChannel
-// }
-
-// // StartRunning launches the UI after its construction
-// func (ui *TestHarnessTextUI) StartRunning() error {
-// 	if err := ui.tviewApplication.Run(); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// // Exit stops the application and exits with a status of zero
-// func (ui *TestHarnessTextUI) Exit() {
-// 	ui.tviewApplication.Stop()
-// 	os.Exit(0)
-// }
+// UserInputStringCommandChannel retrieves a string channel that will contain user input
+// provided in the command input box
+func (ui *Tpcli) UserInputStringCommandChannel() <-chan string {
+	return ui.userInputStringChannel
+}
 
 type commandInputPanel struct {
 	promptTextWithTrailingSpace string
 	parentTviewApplication      *tview.Application
 	tviewInputField             *tview.InputField
 	userCommandReadlineHistory  *readlineHistory
+	callbackOnEnteredCommand    func(string)
 }
 
 func newCommandInputPanel(parentTviewApplication *tview.Application) *commandInputPanel {
@@ -249,8 +252,19 @@ func (panel *commandInputPanel) ChangePromptTo(promptWithoutTrainingSpace string
 	return panel
 }
 
-func (panel *commandInputPanel) BackingTviewObject() *tview.InputField {
+func (panel *commandInputPanel) BackingTviewObject() tview.Primitive {
 	return panel.tviewInputField
+}
+
+func (panel *commandInputPanel) WhenACommandIsEntered(doThis func(commandWithoutTrailingNewline string)) *commandInputPanel {
+	panel.callbackOnEnteredCommand = doThis
+	return panel
+}
+
+func (panel *commandInputPanel) ChangeCommandStringTo(newString string) {
+	// XXX: this doesn't work
+	panel.tviewInputField.SetText(newString)
+	panel.parentTviewApplication.Draw()
 }
 
 func (panel *commandInputPanel) createPanelTviewInputField() {
@@ -260,16 +274,11 @@ func (panel *commandInputPanel) createPanelTviewInputField() {
 		SetFieldWidth(100).
 		SetDoneFunc(func(key tcell.Key) {
 			if key == tcell.KeyEnter {
-				userProvidedCommandText := panel.tviewInputField.GetText()
+				userProvidedCommandTextTrimmed := strings.TrimSpace(panel.tviewInputField.GetText())
 
-				panel.userCommandReadlineHistory.AddItem(userProvidedCommandText)
+				panel.userCommandReadlineHistory.AddItem(userProvidedCommandTextTrimmed)
 				panel.userCommandReadlineHistory.ResetIteration()
-				// if ui.userCommandHistoryTextView.GetText(false) == "" {
-				// 	fmt.Fprintf(ui.userCommandHistoryTextView, userProvidedCommandText)
-				// } else {
-				// 	fmt.Fprintf(ui.userCommandHistoryTextView, "\n%s", userProvidedCommandText)
-				// }
-				//ui.userCommandHistoryTextView.SetText(userProvidedCommandText)
+				panel.callbackOnEnteredCommand(userProvidedCommandTextTrimmed)
 				panel.tviewInputField.SetText("")
 			}
 		})
@@ -298,7 +307,9 @@ type outputPanel struct {
 func newOutputPanel(parentTviewApplication *tview.Application) *outputPanel {
 	textView := tview.NewTextView()
 
-	textView.SetBorder(true)
+	textView.
+		SetBorder(true).
+		SetTitleAlign(tview.AlignLeft)
 
 	textView.SetChangedFunc(func() {
 		parentTviewApplication.Draw()
@@ -309,8 +320,13 @@ func newOutputPanel(parentTviewApplication *tview.Application) *outputPanel {
 	}
 }
 
-func (panel *outputPanel) BackingTviewObject() *tview.TextView {
+func (panel *outputPanel) BackingTviewObject() tview.Primitive {
 	return panel.textView
+}
+
+func (panel *outputPanel) SetTitleTo(newTitle string) *outputPanel {
+	panel.textView.SetTitle(newTitle)
+	return panel
 }
 
 func (panel *outputPanel) AppendText(s string) {
@@ -328,4 +344,8 @@ func (panel *outputPanel) Write(p []byte) (int, error) {
 
 func (panel *outputPanel) Clear() {
 	panel.textView.SetText("")
+}
+
+type uiPanel interface {
+	BackingTviewObject() tview.Primitive
 }

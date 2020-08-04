@@ -5,8 +5,14 @@ import (
 )
 
 func main() {
-	ui := tpcli.NewTpcli()
-	//channelOfCommandsFromUI := ui.ChannelOfControlMessagesFromTheUI()
+	ui := tpcli.NewUI()
 
 	ui.Start()
+
+	commandInputTextChannel := ui.ChannelOfEnteredCommands()
+
+	for {
+		command := <-commandInputTextChannel
+		ui.AddStringToGeneralOutput("Command: " + command)
+	}
 }
