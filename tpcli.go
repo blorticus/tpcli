@@ -165,10 +165,17 @@ func (ui *Tpcli) sendNextInputCommandToChannelWithoutBlocking(commandText string
 
 func (ui *Tpcli) createCommandInputPanel() *Tpcli {
 	ui.commandInputPanel = newCommandInputPanel(ui.tviewApplication)
-	ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
-		go func() { ui.userInputStringChannel <- command }()
-		ui.errorOrHistoryPanel.AppendText(command)
-	})
+
+	if ui.useErrorPanelAsCommandHistory {
+		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+			go func() { ui.userInputStringChannel <- command }()
+			ui.errorOrHistoryPanel.AppendText(command)
+		})
+	} else {
+		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+			go func() { ui.userInputStringChannel <- command }()
+		})
+	}
 	return ui
 }
 
