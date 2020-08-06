@@ -148,19 +148,15 @@ func (ui *Tpcli) AddStringToGeneralOutput(additionalContent string) {
 // any additionalContent submitted here is instead written to the general output panel.
 func (ui *Tpcli) AddStringToErrorOutput(additionalContent string) {
 	if ui.useErrorPanelAsCommandHistory {
-		ui.errorOrHistoryPanel.AppendText(additionalContent)
-	} else {
 		ui.generalOutputPanel.AppendText(additionalContent)
+	} else {
+		ui.errorOrHistoryPanel.AppendText(additionalContent)
 	}
 }
 
 func (ui *Tpcli) createTviewApplication() *Tpcli {
 	ui.tviewApplication = tview.NewApplication()
 	return ui
-}
-
-func (ui *Tpcli) sendNextInputCommandToChannelWithoutBlocking(commandText string) {
-	go func() { ui.userInputStringChannel <- commandText }()
 }
 
 func (ui *Tpcli) createCommandInputPanel() *Tpcli {
@@ -231,16 +227,16 @@ func (ui *Tpcli) composeIntoUIGridUsingStackOrder(panelOrderByType []panelTypes)
 func (ui *Tpcli) addGlobalKeybindings() *Tpcli {
 	ui.tviewApplication.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyTab:
-			switch ui.tviewApplication.GetFocus() {
-			case ui.errorOrHistoryPanel.BackingTviewObject():
-				ui.tviewApplication.SetFocus(ui.commandInputPanel.BackingTviewObject())
-			case ui.commandInputPanel.BackingTviewObject():
-				ui.tviewApplication.SetFocus(ui.generalOutputPanel.BackingTviewObject())
-			default:
-				ui.tviewApplication.SetFocus(ui.errorOrHistoryPanel.BackingTviewObject())
-			}
-			return nil
+		// case tcell.KeyTab:
+		// 	switch ui.tviewApplication.GetFocus() {
+		// 	case ui.errorOrHistoryPanel.BackingTviewObject():
+		// 		ui.tviewApplication.SetFocus(ui.commandInputPanel.BackingTviewObject())
+		// 	case ui.commandInputPanel.BackingTviewObject():
+		// 		ui.tviewApplication.SetFocus(ui.generalOutputPanel.BackingTviewObject())
+		// 	default:
+		// 		ui.tviewApplication.SetFocus(ui.errorOrHistoryPanel.BackingTviewObject())
+		// 	}
+		// 	return nil
 		case tcell.KeyESC:
 			ui.exit()
 		case tcell.KeyCtrlQ:
