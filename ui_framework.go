@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -79,13 +80,7 @@ func newDefaultCommandInputPanel() *defaultCommandInputPanel {
 
 				panel.commandReadlineHistory.AddItem(userProvidedCommandText)
 				panel.commandReadlineHistory.ResetIteration()
-				// if panel.commandHistoryTextView.GetText(false) == "" {
-				// 	fmt.Fprintf(panel.commandHistoryTextView, userProvidedCommandText)
-				// } else {
-				// 	fmt.Fprintf(ui.commandHistoryTextView, "\n%s", userProvidedCommandText)
-				// }
-				// goroutine so as not to block here and thus hold up UI rendering
-				go func() { panel.channelOfEnteredCommandStrings <- userProvidedCommandText }()
+				go func() { panel.channelOfEnteredCommandStrings <- strings.Trim(userProvidedCommandText, " \n") }()
 				panel.uiInputField.SetText("")
 			}
 		})
