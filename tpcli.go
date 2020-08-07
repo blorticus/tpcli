@@ -45,6 +45,7 @@ type Tpcli struct {
 	errorOrHistoryPanel           *outputPanel
 	userInputStringChannel        chan string
 	panelTypesInOrder             []panelTypes
+	indexInOrderOfPanelWithFocus  int
 	useErrorPanelAsCommandHistory bool
 	functionToExecuteAfterUIExits func()
 }
@@ -55,6 +56,7 @@ func NewUI() *Tpcli {
 	ui := &Tpcli{
 		userInputStringChannel:        make(chan string, 10),
 		panelTypesInOrder:             []panelTypes{generalOutputPanel, errorOrHistoryPanel, commandPanel},
+		indexInOrderOfPanelWithFocus:  2,
 		functionToExecuteAfterUIExits: func() { os.Exit(0) },
 		useErrorPanelAsCommandHistory: false,
 	}
@@ -84,6 +86,13 @@ func (ui *Tpcli) ChangeStackingOrderTo(newOrder StackingOrder) *Tpcli {
 		ui.panelTypesInOrder = []panelTypes{errorOrHistoryPanel, commandPanel, generalOutputPanel}
 	case ErrorGeneralCommand:
 		ui.panelTypesInOrder = []panelTypes{errorOrHistoryPanel, generalOutputPanel, commandPanel}
+	}
+
+	for i, panelType := range ui.panelTypesInOrder {
+		if panelType == commandPanel {
+			ui.indexInOrderOfPanelWithFocus = i
+			break
+		}
 	}
 
 	return ui
@@ -227,16 +236,20 @@ func (ui *Tpcli) composeIntoUIGridUsingStackOrder(panelOrderByType []panelTypes)
 func (ui *Tpcli) addGlobalKeybindings() *Tpcli {
 	ui.tviewApplication.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		// case tcell.KeyTab:
-		// 	switch ui.tviewApplication.GetFocus() {
-		// 	case ui.errorOrHistoryPanel.BackingTviewObject():
-		// 		ui.tviewApplication.SetFocus(ui.commandInputPanel.BackingTviewObject())
-		// 	case ui.commandInputPanel.BackingTviewObject():
-		// 		ui.tviewApplication.SetFocus(ui.generalOutputPanel.BackingTviewObject())
-		// 	default:
-		// 		ui.tviewApplication.SetFocus(ui.errorOrHistoryPanel.BackingTviewObject())
-		// 	}
-		// 	return nil
+		case tcell.KeyTab:
+			ui.indexInOrderOfPanelWithFocus++
+			if ui.indexInOrderOfPanelWithFocus >= len(ui.panelTypesInOrder) {
+				ui.indexInOrderOfPanelWithFocus = 0
+			}
+			switch ui.panelTypesInOrder[ui.indexInOrderOfPanelWithFocus] {
+			case commandPanel:
+				ui.tviewApplication.SetFocus(ui.commandInputPanel.BackingTviewObject())
+			case generalOutputPanel:
+				ui.tviewApplication.SetFocus(ui.generalOutputPanel.BackingTviewObject())
+			default:
+				ui.tviewApplication.SetFocus(ui.errorOrHistoryPanel.BackingTviewObject())
+			}
+			return nil
 		case tcell.KeyESC:
 			ui.exit()
 		case tcell.KeyCtrlQ:
