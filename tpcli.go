@@ -152,6 +152,12 @@ func (ui *Tpcli) AddStringToGeneralOutput(additionalContent string) {
 	ui.generalOutputPanel.AppendText(additionalContent)
 }
 
+// FmtToGeneralOutput is the same as AddStringToGeneralOutput, but it takes fmt.Sprintf
+// parameters and expands them using that mechanism
+func (ui *Tpcli) FmtToGeneralOutput(format string, a ...interface{}) {
+	ui.AddStringToGeneralOutput(fmt.Sprintf(format, a...))
+}
+
 // AddStringToErrorOutput appends additionalContent to the error panel in the same way that
 // AddStringToGeneralOutput does. However, if UsingCommandHistoryPanel is invoked, then
 // any additionalContent submitted here is instead written to the general output panel.
@@ -161,6 +167,12 @@ func (ui *Tpcli) AddStringToErrorOutput(additionalContent string) {
 	} else {
 		ui.errorOrHistoryPanel.AppendText(additionalContent)
 	}
+}
+
+// FmtToErrorOutput is the same as AddStringToErrorOutput, but it takes fmt.Sprintf
+// parameters and expands them using that mechanism
+func (ui *Tpcli) FmtToErrorOutput(format string, a ...interface{}) {
+	ui.AddStringToErrorOutput(fmt.Sprintf(format, a...))
 }
 
 func (ui *Tpcli) createTviewApplication() *Tpcli {
