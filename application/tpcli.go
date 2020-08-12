@@ -1,19 +1,15 @@
 package main
 
-import (
-	"github.com/blorticus/tpcli"
-)
-
 func main() {
-	ui := tpcli.NewUI()
+	// ui := tpcli.NewUI()
 
-	ui.Start()
+	// ui.Start()
 
-	commandInputTextChannel := ui.ChannelOfEnteredCommands()
+	// commandInputTextChannel := ui.ChannelOfEnteredCommands()
 
-	for {
-		command := <-commandInputTextChannel
-		ui.AddToGeneralOutputText("Command: " + command)
-		ui.AddToErrorText("ECommand: " + command)
-	}
+	// for {
+	// 	command := <-commandInputTextChannel
+	// 	ui.AddToGeneralOutputText("Command: " + command)
+	// 	ui.AddToErrorText("ECommand: " + command)
+	// }
 }

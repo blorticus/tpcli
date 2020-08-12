@@ -59,11 +59,7 @@ func NewUI() *Tpcli {
 		panelTypesInOrder:             []panelTypes{generalOutputPanel, errorOrHistoryPanel, commandPanel},
 		indexInOrderOfPanelWithFocus:  2,
 		functionToExecuteAfterUIExits: func() { os.Exit(0) },
-<<<<<<< HEAD
-		isUsingAHistoryPanel:          false,
-=======
 		useErrorPanelAsCommandHistory: false,
->>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 	}
 
 	ui.createTviewApplication().
@@ -115,11 +111,7 @@ func (ui *Tpcli) OnUIExit(functionToExecuteAfterUIExits func()) *Tpcli {
 // Any text that the caller attempts to write to the error panel is redirected to the
 // general output panel
 func (ui *Tpcli) UsingCommandHistoryPanel() *Tpcli {
-<<<<<<< HEAD
 	ui.isUsingAHistoryPanel = true
-=======
-	ui.useErrorPanelAsCommandHistory = true
->>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 	return ui
 }
 
@@ -154,16 +146,6 @@ func (ui *Tpcli) ReplaceCommandStringWith(newString string) {
 	ui.commandInputPanel.ChangeCommandStringTo(newString)
 }
 
-<<<<<<< HEAD
-// AddToGeneralOutputText is
-func (ui *Tpcli) AddToGeneralOutputText(additionalContent string) {
-	ui.generalOutputPanel.AppendText(additionalContent)
-}
-
-// AddToErrorText is
-func (ui *Tpcli) AddToErrorText(additionalContent string) {
-	if ui.isUsingAHistoryPanel {
-=======
 // AddStringToGeneralOutput appends additionalContent to whatever text is currently in the
 // general output panel.  A newline (\n) is appended to the text that is already there first,
 // then the new text is appended.
@@ -182,20 +164,16 @@ func (ui *Tpcli) FmtToGeneralOutput(format string, a ...interface{}) {
 // any additionalContent submitted here is instead written to the general output panel.
 func (ui *Tpcli) AddStringToErrorOutput(additionalContent string) {
 	if ui.useErrorPanelAsCommandHistory {
->>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 		ui.generalOutputPanel.AppendText(additionalContent)
 	} else {
 		ui.errorOrHistoryPanel.AppendText(additionalContent)
 	}
-<<<<<<< HEAD
-=======
 }
 
 // FmtToErrorOutput is the same as AddStringToErrorOutput, but it takes fmt.Sprintf
 // parameters and expands them using that mechanism
 func (ui *Tpcli) FmtToErrorOutput(format string, a ...interface{}) {
 	ui.AddStringToErrorOutput(fmt.Sprintf(format, a...))
->>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 }
 
 func (ui *Tpcli) createTviewApplication() *Tpcli {
@@ -206,29 +184,16 @@ func (ui *Tpcli) createTviewApplication() *Tpcli {
 func (ui *Tpcli) createCommandInputPanel() *Tpcli {
 	ui.commandInputPanel = newCommandInputPanel(ui.tviewApplication)
 
-<<<<<<< HEAD
-	if ui.isUsingAHistoryPanel {
-		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
-			ui.sendNextInputCommandToChannelWithoutBlocking(command)
-=======
 	if ui.useErrorPanelAsCommandHistory {
 		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
 			go func() { ui.userInputStringChannel <- command }()
->>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 			ui.errorOrHistoryPanel.AppendText(command)
 		})
 	} else {
 		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
-<<<<<<< HEAD
-			ui.sendNextInputCommandToChannelWithoutBlocking(command)
-		})
-	}
-
-=======
 			go func() { ui.userInputStringChannel <- command }()
 		})
 	}
->>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 	return ui
 }
 
