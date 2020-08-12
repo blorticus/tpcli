@@ -9,10 +9,12 @@ import (
 	"github.com/rivo/tview"
 )
 
-// StackingOrder is
+// StackingOrder represents the order in which the three panels should be arranged vertically.
+// All panels consume all horizontal space (i.e., they all use the same number of columns).
 type StackingOrder int
 
-// Various stacking orders
+// Various stacking orders.  "Command" is the command input panel.  "General" is the general
+// output panel.  "Error" is the error (or command-history) panel.
 const (
 	CommandErrorGeneral StackingOrder = iota
 	CommandGeneralError
@@ -31,10 +33,11 @@ const (
 	generalOutputPanel
 )
 
-// Tpcli provides a TUI based text interface.  It has a command
-// entry box with basic EMACS-like control keys (^k, ^a, ^e, ^b) used with a bash
-// shell.  Another box shows the last 10 commands entered.  A third box is used for
-// general output from the application logic.
+// Tpcli provides a terminal text interfaces.  It creates three "panels": a command
+// entry panel, a general output panel and third panel that is either for error
+// output or which records the history of entered commands.  The command entry
+// panel supports basic shell-emacs bindings (e.g., ^a to go to the start of the
+// line, ^e to the end of the line) and arrow key readline-style history navigation.
 type Tpcli struct {
 	tviewApplication              *tview.Application
 	commandInputPanel             *commandInputPanel
@@ -43,16 +46,24 @@ type Tpcli struct {
 	isUsingAHistoryPanel          bool
 	userInputStringChannel        chan string
 	panelTypesInOrder             []panelTypes
+	indexInOrderOfPanelWithFocus  int
+	useErrorPanelAsCommandHistory bool
 	functionToExecuteAfterUIExits func()
 }
 
-// NewUI constructs the UI interface elements
+// NewUI constructs the UI interface elements for the Tpcli but does not start showing
+// them (that happens on invocation of Start())
 func NewUI() *Tpcli {
 	ui := &Tpcli{
 		userInputStringChannel:        make(chan string, 10),
 		panelTypesInOrder:             []panelTypes{generalOutputPanel, errorOrHistoryPanel, commandPanel},
+		indexInOrderOfPanelWithFocus:  2,
 		functionToExecuteAfterUIExits: func() { os.Exit(0) },
+<<<<<<< HEAD
 		isUsingAHistoryPanel:          false,
+=======
+		useErrorPanelAsCommandHistory: false,
+>>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 	}
 
 	ui.createTviewApplication().
@@ -82,22 +93,38 @@ func (ui *Tpcli) ChangeStackingOrderTo(newOrder StackingOrder) *Tpcli {
 		ui.panelTypesInOrder = []panelTypes{errorOrHistoryPanel, generalOutputPanel, commandPanel}
 	}
 
+	for i, panelType := range ui.panelTypesInOrder {
+		if panelType == commandPanel {
+			ui.indexInOrderOfPanelWithFocus = i
+			break
+		}
+	}
+
 	return ui
 }
 
-// OnUIExit is
+// OnUIExit provides a function that is executed by the Tpcli immediately after it Stops, and the
+// UI is terminated.  This function is executed when a UI exit is provided, including ^q or <esc>.
 func (ui *Tpcli) OnUIExit(functionToExecuteAfterUIExits func()) *Tpcli {
 	ui.functionToExecuteAfterUIExits = functionToExecuteAfterUIExits
 	return ui
 }
 
-// UsingCommandHistoryPanel is
+// UsingCommandHistoryPanel instructs the Tcpli to use the error panel as a command history.  When
+// this is set, any command entered in the command panel is copied here after the user hits <enter>.
+// Any text that the caller attempts to write to the error panel is redirected to the
+// general output panel
 func (ui *Tpcli) UsingCommandHistoryPanel() *Tpcli {
+<<<<<<< HEAD
 	ui.isUsingAHistoryPanel = true
+=======
+	ui.useErrorPanelAsCommandHistory = true
+>>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 	return ui
 }
 
-// Start is
+// Start instructs Tpcli to draw the UI and start handling keyboard events.  This should
+// be invoked as a goroutine.
 func (ui *Tpcli) Start() {
 	go ui.tviewApplication.Run()
 }
@@ -107,21 +134,27 @@ func (ui *Tpcli) exit() {
 	ui.functionToExecuteAfterUIExits()
 }
 
-// Stop is
+// Stop instructs Tpcli to stop the UI, clearing it.  This is not the same as an exit
+// triggered by ^q or <esc>.  This only stops the UI.  It does not exit the function provided
+// by OnUIExit.
 func (ui *Tpcli) Stop() {
 	ui.tviewApplication.Stop()
 }
 
-// ChannelOfEnteredCommands is
+// ChannelOfEnteredCommands is a channel that emits the commands that the user enters in the
+// command panel. A command is a string of UTF-8 text that ends with a newline (signaled by
+// the <enter> key).  The commands strings sent on this channel omit the trailing newline.
 func (ui *Tpcli) ChannelOfEnteredCommands() <-chan string {
 	return ui.userInputStringChannel
 }
 
-// ReplaceCommandStringWith is
+// ReplaceCommandStringWith writes the newString to the command panel, replacing whatever
+// is currently there.
 func (ui *Tpcli) ReplaceCommandStringWith(newString string) {
 	ui.commandInputPanel.ChangeCommandStringTo(newString)
 }
 
+<<<<<<< HEAD
 // AddToGeneralOutputText is
 func (ui *Tpcli) AddToGeneralOutputText(additionalContent string) {
 	ui.generalOutputPanel.AppendText(additionalContent)
@@ -130,10 +163,39 @@ func (ui *Tpcli) AddToGeneralOutputText(additionalContent string) {
 // AddToErrorText is
 func (ui *Tpcli) AddToErrorText(additionalContent string) {
 	if ui.isUsingAHistoryPanel {
+=======
+// AddStringToGeneralOutput appends additionalContent to whatever text is currently in the
+// general output panel.  A newline (\n) is appended to the text that is already there first,
+// then the new text is appended.
+func (ui *Tpcli) AddStringToGeneralOutput(additionalContent string) {
+	ui.generalOutputPanel.AppendText(additionalContent)
+}
+
+// FmtToGeneralOutput is the same as AddStringToGeneralOutput, but it takes fmt.Sprintf
+// parameters and expands them using that mechanism
+func (ui *Tpcli) FmtToGeneralOutput(format string, a ...interface{}) {
+	ui.AddStringToGeneralOutput(fmt.Sprintf(format, a...))
+}
+
+// AddStringToErrorOutput appends additionalContent to the error panel in the same way that
+// AddStringToGeneralOutput does. However, if UsingCommandHistoryPanel is invoked, then
+// any additionalContent submitted here is instead written to the general output panel.
+func (ui *Tpcli) AddStringToErrorOutput(additionalContent string) {
+	if ui.useErrorPanelAsCommandHistory {
+>>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 		ui.generalOutputPanel.AppendText(additionalContent)
 	} else {
 		ui.errorOrHistoryPanel.AppendText(additionalContent)
 	}
+<<<<<<< HEAD
+=======
+}
+
+// FmtToErrorOutput is the same as AddStringToErrorOutput, but it takes fmt.Sprintf
+// parameters and expands them using that mechanism
+func (ui *Tpcli) FmtToErrorOutput(format string, a ...interface{}) {
+	ui.AddStringToErrorOutput(fmt.Sprintf(format, a...))
+>>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 }
 
 func (ui *Tpcli) createTviewApplication() *Tpcli {
@@ -141,24 +203,32 @@ func (ui *Tpcli) createTviewApplication() *Tpcli {
 	return ui
 }
 
-func (ui *Tpcli) sendNextInputCommandToChannelWithoutBlocking(commandText string) {
-	go func() { ui.userInputStringChannel <- commandText }()
-}
-
 func (ui *Tpcli) createCommandInputPanel() *Tpcli {
 	ui.commandInputPanel = newCommandInputPanel(ui.tviewApplication)
 
+<<<<<<< HEAD
 	if ui.isUsingAHistoryPanel {
 		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
 			ui.sendNextInputCommandToChannelWithoutBlocking(command)
+=======
+	if ui.useErrorPanelAsCommandHistory {
+		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+			go func() { ui.userInputStringChannel <- command }()
+>>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 			ui.errorOrHistoryPanel.AppendText(command)
 		})
 	} else {
 		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
+<<<<<<< HEAD
 			ui.sendNextInputCommandToChannelWithoutBlocking(command)
 		})
 	}
 
+=======
+			go func() { ui.userInputStringChannel <- command }()
+		})
+	}
+>>>>>>> d82f37d265972b94f0beb286aad7ced35dcb51e7
 	return ui
 }
 
@@ -215,10 +285,14 @@ func (ui *Tpcli) addGlobalKeybindings() *Tpcli {
 	ui.tviewApplication.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTab:
-			switch ui.tviewApplication.GetFocus() {
-			case ui.errorOrHistoryPanel.BackingTviewObject():
+			ui.indexInOrderOfPanelWithFocus++
+			if ui.indexInOrderOfPanelWithFocus >= len(ui.panelTypesInOrder) {
+				ui.indexInOrderOfPanelWithFocus = 0
+			}
+			switch ui.panelTypesInOrder[ui.indexInOrderOfPanelWithFocus] {
+			case commandPanel:
 				ui.tviewApplication.SetFocus(ui.commandInputPanel.BackingTviewObject())
-			case ui.commandInputPanel.BackingTviewObject():
+			case generalOutputPanel:
 				ui.tviewApplication.SetFocus(ui.generalOutputPanel.BackingTviewObject())
 			default:
 				ui.tviewApplication.SetFocus(ui.errorOrHistoryPanel.BackingTviewObject())
@@ -234,12 +308,6 @@ func (ui *Tpcli) addGlobalKeybindings() *Tpcli {
 	})
 
 	return ui
-}
-
-// UserInputStringCommandChannel retrieves a string channel that will contain user input
-// provided in the command input box
-func (ui *Tpcli) UserInputStringCommandChannel() <-chan string {
-	return ui.userInputStringChannel
 }
 
 type commandInputPanel struct {
