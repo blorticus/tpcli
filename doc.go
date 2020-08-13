@@ -1,4 +1,4 @@
-// tpcli is a golang package (and application) that provides a simple three panel terminal-based UI.
+// Package tpcli is a golang package (and application) that provides a simple three panel terminal-based UI.
 //
 // Overview
 //
@@ -37,16 +37,15 @@
 //  go ui.Start()
 //  for {
 //      nextCommand := <-ui.ChannelOfEnteredCommands()
-//		switch nextCommand {
-//			"quit":
-//				ui.Stop()
-//			"time":
-//				hour, min, sec := time.Now().Clock()
-//				ui.FmtToGeneralOutput("The time of day is: %02d:%02d:%02d", hour, min, sec)
-//			default:
-//				ui.AddStringToErrorOutput("You can only ask for the time, I'm afraid.")
+//          switch nextCommand {
+//              "quit":
+//                  ui.Stop()
+//              "time":
+//                  hour, min, sec := time.Now().Clock()
+//                  ui.FmtToGeneralOutput("The time of day is: %02d:%02d:%02d", hour, min, sec)
+//              default:
+//                  ui.AddStringToErrorOutput("You can only ask for the time, I'm afraid.")
 //      }
 //  }
 //
-
 package tpcli
