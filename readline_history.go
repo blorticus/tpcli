@@ -1,14 +1,18 @@
 package tpcli
 
+import (
+	"github.com/blorticus/stringcque"
+)
+
 type readlineHistory struct {
-	attachedQueue           *SimpleStringCircularQueue
+	attachedQueue           *stringcque.SimpleStringCircularQueue
 	indexOfLastItemReturned uint
 	iterationHasStarted     bool
 }
 
 func newReadlineHistory(maximumHistoryEntries uint) *readlineHistory {
 	return &readlineHistory{
-		attachedQueue:           NewSimpleStringCircularBuffer(maximumHistoryEntries),
+		attachedQueue:           stringcque.NewSimpleStringCircularBuffer(int(maximumHistoryEntries)),
 		indexOfLastItemReturned: 0,
 		iterationHasStarted:     false,
 	}

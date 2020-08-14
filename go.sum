@@ -1,4 +1,8 @@
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
+github.com/blorticus/stringcque v0.0.0-20200814203739-32ca91a55dcd h1:CKXbaf8X/yW4YG02AoSRTt3UzyEApuq85bh3Rn/EYNM=
+github.com/blorticus/stringcque v0.0.0-20200814203739-32ca91a55dcd/go.mod h1:ZYg1LNtLj2IGnkjfIkb6lwpNtiSb1XPjIZRRQUxOuYw=
+github.com/blorticus/stringcque v1.0.0 h1:3uWlSwL25VrHmFBWpYXp7IlTUTswJps3xmDThOmdOxs=
+github.com/blorticus/stringcque v1.0.0/go.mod h1:ZYg1LNtLj2IGnkjfIkb6lwpNtiSb1XPjIZRRQUxOuYw=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9 h1:hsms1Qyu0jgnwNXIxa+/V/PDsU6CfLf6CNO8H7IWoS4=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
