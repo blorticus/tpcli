@@ -31,6 +31,9 @@
 // function is called.  By default, that function is os.Exit(0).  However, this may be overridden
 // via OnUIExit().
 //
+// For convenience, there is also a CommandProcessor that allows you to define patterns for possible
+// commands, and associate those will callback methods when the user enters those commands.
+//
 // Example
 //
 //  ui := tpcli.NewUI().ChangeStackingOrderTo(tpcli.CommandGeneralError)
