@@ -18,6 +18,15 @@ func main() {
 	} else {
 		mainApplication.deactivateDebugLogging()
 	}
+
+	var broker *PeerCommunicationBroker
+	if cliArgumentsProcessor.WantsToBindToTCPSocket() {
+		broker = BindUsingTCPSocket(cliArgumentsProcessor.TCPSocketBindAddress())
+	} else {
+		broker = BindUsingUnixSocket(cliArgumentsProcessor.DebugLogFileFullPath())
+	}
+
+	go broker.StartListening()
 }
 
 func panicIfError(err error) {

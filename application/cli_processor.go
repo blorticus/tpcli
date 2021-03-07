@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 )
 
 const (
@@ -119,15 +118,7 @@ func (processor *CliProcessor) processBindParameter(tcpBindParameterValue string
 
 	} else {
 		processor.usingTCPBindSocket = false
-
-		pathInfo, err := os.Stat(unixBindParameterValue)
-		if err != nil {
-			return fmt.Errorf("Invalid file path (%s): %s", unixBindParameterValue, err.Error())
-		}
-
-		if pathInfo.Mode() != os.ModeSocket {
-			return fmt.Errorf("File (%s) is not a socket", unixBindParameterValue)
-		}
+		processor.unixSocketPath = unixBindParameterValue
 	}
 
 	return nil
