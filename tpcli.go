@@ -43,7 +43,6 @@ type Tpcli struct {
 	commandInputPanel             *commandInputPanel
 	generalOutputPanel            *outputPanel
 	errorOrHistoryPanel           *outputPanel
-	isUsingAHistoryPanel          bool
 	userInputStringChannel        chan string
 	panelTypesInOrder             []panelTypes
 	indexInOrderOfPanelWithFocus  int
@@ -61,13 +60,6 @@ func NewUI() *Tpcli {
 		functionToExecuteAfterUIExits: func() { os.Exit(0) },
 		useErrorPanelAsCommandHistory: false,
 	}
-
-	ui.createTviewApplication().
-		createPanelForErrorOrCommandHistory().
-		createCommandInputPanel().
-		createGeneralOutputPanel().
-		composeIntoUIGridUsingStackOrder(ui.panelTypesInOrder).
-		addGlobalKeybindings()
 
 	return ui
 }
@@ -118,13 +110,20 @@ func (ui *Tpcli) OnUIExit(functionToExecuteAfterUIExits func()) *Tpcli {
 // Any text that the caller attempts to write to the error panel is redirected to the
 // general output panel
 func (ui *Tpcli) UsingCommandHistoryPanel() *Tpcli {
-	ui.isUsingAHistoryPanel = true
+	ui.useErrorPanelAsCommandHistory = true
 	return ui
 }
 
 // Start instructs Tpcli to draw the UI and start handling keyboard events.  This should
 // be invoked as a goroutine.
 func (ui *Tpcli) Start() {
+	ui.createTviewApplication().
+		createPanelForErrorOrCommandHistory().
+		createCommandInputPanel().
+		createGeneralOutputPanel().
+		composeIntoUIGridUsingStackOrder(ui.panelTypesInOrder).
+		addGlobalKeybindings()
+
 	go ui.tviewApplication.Run()
 }
 
@@ -190,15 +189,26 @@ func (ui *Tpcli) createTviewApplication() *Tpcli {
 
 func (ui *Tpcli) createCommandInputPanel() *Tpcli {
 	ui.commandInputPanel = newCommandInputPanel(ui.tviewApplication)
-
 	if ui.useErrorPanelAsCommandHistory {
 		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
 			go func() { ui.userInputStringChannel <- command }()
 			ui.errorOrHistoryPanel.AppendText(command)
+			switch command {
+			case "quit":
+				fallthrough
+			case "exit":
+				ui.exit()
+			}
 		})
 	} else {
 		ui.commandInputPanel.WhenACommandIsEntered(func(command string) {
 			go func() { ui.userInputStringChannel <- command }()
+			switch command {
+			case "quit":
+				fallthrough
+			case "exit":
+				ui.exit()
+			}
 		})
 	}
 	return ui

@@ -31,14 +31,16 @@ func main() {
 
 	channelOfMessagesFromPeer := broker.ChannelOfMessagesFromPeers()
 
-	tpcliStackingOrder, usingErrorPanel := mainApplication.DeriveTpcliPanelStackingOrderFromCliProcessorStackOrder(cliArgumentsProcessor.DesiredPanelStackingOrder())
+	tpcliStackingOrder, usingCommandHistoryPanel := mainApplication.DeriveTpcliPanelStackingOrderFromCliProcessorStackOrder(cliArgumentsProcessor.DesiredPanelStackingOrder())
 
 	ui := tpcli.NewUI()
 	ui.ChangeStackingOrderTo(tpcliStackingOrder)
 
-	if !usingErrorPanel {
+	if usingCommandHistoryPanel {
 		ui.UsingCommandHistoryPanel()
 	}
+
+	channelOfUserEnteredCommands := ui.ChannelOfEnteredCommands()
 
 	broker.
 		OnIncomingPeerAccept(func(broker *PeerCommunicationBroker, peerConnection net.Conn) {
@@ -54,12 +56,39 @@ func main() {
 			ui.FmtToErrorOutput("Peer communication error with peer (%s): %s", peerConnection.RemoteAddr().String(), err.Error())
 		})
 
+	ui.OnUIExit(func() {
+		broker.SendMessageToPeer(&PeerMessage{
+			Type:    UserExited,
+			Message: "",
+		})
+		broker.Terminate()
+		os.Exit(0)
+	})
+
 	go ui.Start()
 	go broker.StartListening()
 
 	for {
-		messageFromPeer := <-channelOfMessagesFromPeer
-		ui.FmtToGeneralOutput("Received message from peer.  Type = (%d), Message = (%s)\n", messageFromPeer.Type, messageFromPeer.Message)
+		select {
+		case messageFromPeer := <-channelOfMessagesFromPeer:
+			switch messageFromPeer.Type {
+			case ProtocolError:
+				ui.FmtToErrorOutput("Peer reports protocol error: %s", messageFromPeer.Message)
+			case InputCommandReplacement:
+				ui.ReplaceCommandStringWith(messageFromPeer.Message)
+			case GeneralOutput:
+				ui.AddStringToGeneralOutput(messageFromPeer.Message)
+			case ErrorOuput:
+				ui.AddStringToErrorOutput(messageFromPeer.Message)
+			default:
+				broker.SendMessageToPeer(&PeerMessage{
+					Type:    ProtocolError,
+					Message: fmt.Sprintf("invalid type (%s)", messageFromPeer.TypeAsString()),
+				})
+			}
+		case userEnteredCommand := <-channelOfUserEnteredCommands:
+			broker.SendMessageToPeer(&PeerMessage{Type: InputCommandReceived, Message: userEnteredCommand})
+		}
 	}
 }
 
@@ -84,49 +113,49 @@ func (app *application) dieIfError(err error) {
 	}
 }
 
-func (app *application) DeriveTpcliPanelStackingOrderFromCliProcessorStackOrder(appStackOrder []int) (tpcliStackingOrder tpcli.StackingOrder, usingErrorPanel bool) {
+func (app *application) DeriveTpcliPanelStackingOrderFromCliProcessorStackOrder(appStackOrder []int) (tpcliStackingOrder tpcli.StackingOrder, usingCommandHistoryPanel bool) {
 	switch appStackOrder[0] {
 	case outputPanel:
 		switch appStackOrder[1] {
 		case errorPanel:
-			return tpcli.GeneralErrorCommand, true
-		case historyPanel:
 			return tpcli.GeneralErrorCommand, false
+		case historyPanel:
+			return tpcli.GeneralErrorCommand, true
 		case commandEntryPanel:
 			if appStackOrder[2] == errorPanel {
-				return tpcli.GeneralCommandError, true
+				return tpcli.GeneralCommandError, false
 			}
-			return tpcli.GeneralCommandError, false
+			return tpcli.GeneralCommandError, true
 		}
 	case errorPanel:
-		switch appStackOrder[1] {
-		case outputPanel:
-			return tpcli.ErrorGeneralCommand, true
-		case commandEntryPanel:
-			return tpcli.ErrorCommandGeneral, true
-		}
-	case historyPanel:
 		switch appStackOrder[1] {
 		case outputPanel:
 			return tpcli.ErrorGeneralCommand, false
 		case commandEntryPanel:
 			return tpcli.ErrorCommandGeneral, false
 		}
+	case historyPanel:
+		switch appStackOrder[1] {
+		case outputPanel:
+			return tpcli.ErrorGeneralCommand, true
+		case commandEntryPanel:
+			return tpcli.ErrorCommandGeneral, true
+		}
 	case commandEntryPanel:
 		switch appStackOrder[1] {
 		case outputPanel:
 			if appStackOrder[2] == errorPanel {
-				return tpcli.CommandGeneralError, true
+				return tpcli.CommandGeneralError, false
 			}
-			return tpcli.CommandGeneralError, false
+			return tpcli.CommandGeneralError, true
 		case errorPanel:
-			return tpcli.CommandErrorGeneral, true
-		case historyPanel:
 			return tpcli.CommandErrorGeneral, false
+		case historyPanel:
+			return tpcli.CommandErrorGeneral, true
 		}
 	}
 
-	return tpcli.GeneralErrorCommand, false
+	return tpcli.GeneralErrorCommand, true
 }
 
 func (app *application) activateDebugLoggingUsingFile(fileName string) {
@@ -138,24 +167,4 @@ func (app *application) activateDebugLoggingUsingFile(fileName string) {
 
 func (app *application) deactivateDebugLogging() {
 	app.debugLogger = log.New(ioutil.Discard, "", 0)
-}
-
-func (app *application) setPanelStackingOrderToUserSpecifiedValue(order string) {
-
-}
-
-func (app *application) setPanelStackingOrderToDefault() {
-
-}
-
-func (app *application) setEhPanelChoiceToUserSpecifiedValue(value string) {
-
-}
-
-func (app *application) setEhPanelChoiceToDefault() {
-
-}
-
-func (app *application) bindCommandSocket(bindType string, bindValue string) {
-
 }

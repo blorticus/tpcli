@@ -65,6 +65,7 @@ $type must be one of the following:
  input_command_replacement
  general_output
  error_output
+ user_exited
 ```
 
 The application will emit "protocol_error" and "input_command_received" messages, and will receive "input_command_replacement", "general_output" and "error_output".  It will silently ignore any non-supported message type value and any message received that is intended only for output (i.e., "protocol_error" and "input_command_received").

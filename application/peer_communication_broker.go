@@ -24,12 +24,33 @@ const (
 	InputCommandReplacement
 	GeneralOutput
 	ErrorOuput
+	UserExited
 )
 
 // PeerMessage represents a message delivered to or received from a remote peer
 type PeerMessage struct {
 	Type    PeerMessageType
 	Message string
+}
+
+// TypeAsString returns the message type as a string appropriate for the JSON type field
+func (message *PeerMessage) TypeAsString() string {
+	switch message.Type {
+	case ProtocolError:
+		return "protocol_error"
+	case InputCommandReceived:
+		return "input_command_received"
+	case InputCommandReplacement:
+		return "input_command_replacement"
+	case GeneralOutput:
+		return "general_output"
+	case ErrorOuput:
+		return "error_output"
+	case UserExited:
+		return "user_exited"
+	}
+
+	return ""
 }
 
 type bindType int
@@ -51,6 +72,7 @@ type PeerCommunicationBroker struct {
 	peerClosureHandler               func(broker *PeerCommunicationBroker, peerConnection net.Conn)
 	peerCommunicationErrorHandler    func(broker *PeerCommunicationBroker, peerConnection net.Conn, err error)
 	generalCommunicationErrorHandler func(broker *PeerCommunicationBroker, err error)
+	peerConnection                   net.Conn
 }
 
 // BindUsingUnixSocket attempts to bind to an existing Unix stream socket and, on success, returns
@@ -129,6 +151,26 @@ func (broker *PeerCommunicationBroker) ChannelOfMessagesFromPeers() <-chan *Peer
 	return broker.channelOfMessagesFromPeers
 }
 
+// SendMessageToPeer sends a message to the peer encoded as JSON
+func (broker *PeerCommunicationBroker) SendMessageToPeer(message *PeerMessage) error {
+	peerMessageAsJSON := &PeerMessageJSON{
+		Type:    message.TypeAsString(),
+		Message: message.Message,
+	}
+
+	jsonString, err := json.Marshal(peerMessageAsJSON)
+	if err != nil {
+		return err
+	}
+
+	_, err = broker.peerConnection.Write(jsonString)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // StartListening causes this broker to start listening for incoming peers and handling message between peers.  This should be invoked as a goroutine.
 func (broker *PeerCommunicationBroker) StartListening() {
 	var listener net.Listener
@@ -159,6 +201,8 @@ func (broker *PeerCommunicationBroker) StartListening() {
 	}
 	defer peerConnection.Close()
 
+	broker.peerConnection = peerConnection
+
 	broker.incomingPeerAcceptHandler(broker, peerConnection)
 
 	jsonDecoder := json.NewDecoder(peerConnection)
@@ -181,6 +225,11 @@ func (broker *PeerCommunicationBroker) StartListening() {
 			broker.channelOfMessagesFromPeers <- nextPeerMessage
 		}
 	}
+}
+
+// Terminate terminates the running broker after closing the peer connection
+func (broker *PeerCommunicationBroker) Terminate() {
+	broker.peerConnection.Close()
 }
 
 func (broker *PeerCommunicationBroker) convertPeerMessageJSONToMessageObject(jsonMessage *PeerMessageJSON) (*PeerMessage, error) {
