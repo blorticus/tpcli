@@ -72,6 +72,13 @@ func NewUI() *Tpcli {
 	return ui
 }
 
+// Write allows an instance of tpcli to be used as a Writer.  Any bytes provided will be interpreted
+// as an ASCII string and will be written to the General Output panel.
+func (ui *Tpcli) Write(p []byte) (n int, err error) {
+	ui.AddStringToGeneralOutput(string(p))
+	return len(p), nil
+}
+
 // ChangeStackingOrderTo changes the panel stacking order to the provided ordering
 func (ui *Tpcli) ChangeStackingOrderTo(newOrder StackingOrder) *Tpcli {
 	switch newOrder {
