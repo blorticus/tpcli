@@ -130,19 +130,20 @@ func (processor *CliProcessor) processOrderParameter(orderParameterValue string)
 	}
 
 	orderLettersGiven := make(map[rune]bool)
-	for _, orderLetter := range string(orderParameterValue) {
+	for indexOfLetterInString, orderLetter := range string(orderParameterValue) {
 		if _, letterAlreadyProvided := orderLettersGiven[orderLetter]; letterAlreadyProvided {
 			return fmt.Errorf("In -order, a single letter cannot be provided more than once")
 		}
+
 		switch orderLetter {
 		case 'o':
-			processor.panelStack = append(processor.panelStack, outputPanel)
+			processor.panelStack[indexOfLetterInString] = outputPanel
 		case 'h':
-			processor.panelStack = append(processor.panelStack, historyPanel)
+			processor.panelStack[indexOfLetterInString] = historyPanel
 		case 'e':
-			processor.panelStack = append(processor.panelStack, errorPanel)
+			processor.panelStack[indexOfLetterInString] = errorPanel
 		case 'c':
-			processor.panelStack = append(processor.panelStack, commandEntryPanel)
+			processor.panelStack[indexOfLetterInString] = commandEntryPanel
 		default:
 			return fmt.Errorf("In -order, only 'o', 'h', 'e', and 'c' are allowed")
 		}
