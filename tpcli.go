@@ -296,7 +296,7 @@ type commandInputPanel struct {
 	promptTextWithTrailingSpace string
 	parentTviewApplication      *tview.Application
 	tviewInputField             *tview.InputField
-	userCommandReadlineHistory  *readlineHistory
+	userCommandReadlineHistory  *ReadlineHistory
 	callbackOnEnteredCommand    func(string)
 }
 
@@ -304,7 +304,7 @@ func newCommandInputPanel(parentTviewApplication *tview.Application) *commandInp
 	panel := &commandInputPanel{
 		parentTviewApplication:      parentTviewApplication,
 		promptTextWithTrailingSpace: "Enter command> ",
-		userCommandReadlineHistory:  newReadlineHistory(200),
+		userCommandReadlineHistory:  NewReadlineHistory(200),
 	}
 
 	panel.createPanelTviewInputField()
@@ -348,14 +348,10 @@ func (panel *commandInputPanel) createPanelTviewInputField() {
 
 	panel.tviewInputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyUp {
-			if commandFromHistory, thereWereMoreCommandsInHistory := panel.userCommandReadlineHistory.Up(); thereWereMoreCommandsInHistory {
-				panel.tviewInputField.SetText(commandFromHistory)
-			}
+			panel.tviewInputField.SetText(panel.userCommandReadlineHistory.Up())
 			return nil
 		} else if event.Key() == tcell.KeyDown {
-			if commandFromHistory, wasNotYetAtFirstCommand := panel.userCommandReadlineHistory.Down(); wasNotYetAtFirstCommand {
-				panel.tviewInputField.SetText(commandFromHistory)
-			}
+			panel.tviewInputField.SetText(panel.userCommandReadlineHistory.Down())
 			return nil
 		} else {
 			return event
@@ -394,7 +390,7 @@ func (panel *outputPanel) SetTitleTo(newTitle string) *outputPanel {
 
 func (panel *outputPanel) AppendText(s string) {
 	if panel.textView.GetText(false) == "" {
-		fmt.Fprintf(panel.textView, s)
+		fmt.Fprint(panel.textView, s)
 	} else {
 		fmt.Fprintf(panel.textView, "\n%s", s)
 	}
@@ -407,8 +403,4 @@ func (panel *outputPanel) Write(p []byte) (int, error) {
 
 func (panel *outputPanel) Clear() {
 	panel.textView.SetText("")
-}
-
-type uiPanel interface {
-	BackingTviewObject() tview.Primitive
 }

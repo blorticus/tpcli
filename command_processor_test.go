@@ -109,7 +109,7 @@ var _ = Describe("CommandProcessor", func() {
 			It("should not match, generate the error 'Command not understood', and have called no callback", func() {
 				matchesAnyMatcher, err := processor.ProcessCommandString("quit ")
 				Expect(matchesAnyMatcher).NotTo(BeTrue())
-				Expect(err).Should(MatchError("Command not understood"))
+				Expect(err).Should(MatchError("command not understood"))
 				Expect(callback.nameOfLastCallback).To(Equal(""))
 			})
 		})
@@ -118,7 +118,7 @@ var _ = Describe("CommandProcessor", func() {
 			It("should not match, generate the error 'Command not understood', and have called no callback", func() {
 				matchesAnyMatcher, err := processor.ProcessCommandString("foo must compile three times")
 				Expect(matchesAnyMatcher).NotTo(BeTrue())
-				Expect(err).Should(MatchError("Command not understood"))
+				Expect(err).Should(MatchError("command not understood"))
 				Expect(callback.nameOfLastCallback).To(Equal(""))
 			})
 		})

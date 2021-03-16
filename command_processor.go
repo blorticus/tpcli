@@ -58,5 +58,5 @@ func (processor *CommandProcessor) ProcessCommandString(commandString string) (m
 		}
 	}
 
-	return false, fmt.Errorf("Command not understood")
+	return false, fmt.Errorf("command not understood")
 }
