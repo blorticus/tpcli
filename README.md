@@ -16,7 +16,7 @@ package main
 import "github.com/blorticus/tpcli"
 
 func main() {
-    ui := NewTpcli().UsingStackingOrder(tpcli.CommandGeneralError)
+    ui := tcpli.NewTpcli().UsingStackingOrder(tpcli.CommandGeneralError)
     channelOfCommandsFromUI := ui.ChannelOfControlMessagesFromTheUI()
     go ui.Start()
 
@@ -45,6 +45,8 @@ func main() {
     }
 }
 ```
+
+Note that `^q` and the escape key will both cause the UI to exit.
 
 ## As an Application
 
