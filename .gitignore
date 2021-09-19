@@ -17,3 +17,4 @@
 .devcontainer
 application/tpcli
 application/application
+.DS_Store
