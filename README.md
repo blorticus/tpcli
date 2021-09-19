@@ -13,36 +13,28 @@ First, the tpcli is constructed, then started in a goroutine.  The UI goroutine 
 ```golang
 package main
 
-import "github.com/blorticus/tpcli"
+import (
+	"time"
+
+	"github.com/blorticus/tpcli"
+)
 
 func main() {
-    ui := tcpli.NewTpcli().UsingStackingOrder(tpcli.CommandGeneralError)
-    channelOfCommandsFromUI := ui.ChannelOfControlMessagesFromTheUI()
-    go ui.Start()
+	ui := tpcli.NewUI().ChangeStackingOrderTo(tpcli.CommandGeneralError)
+	go ui.Start()
 
-    for {
-        controlMessage := <-channelOfCommandsFromUI
+	for {
+		switch <-ui.ChannelOfEnteredCommands() {
+		case "quit":
+			ui.Stop()
+		case "time":
+			hour, min, sec := time.Now().Clock()
+			ui.FmtToGeneralOutput("The time of day is: %02d:%02d:%02d", hour, min, sec)
+		default:
+			ui.AddStringToErrorOutput("You can only ask for the time, I'm afraid.")
+		}
 
-        switch controlMessage.Type {
-        case tpcli.Error:
-            handleErrorText(controlMessage.Body)
-
-        case tpcli.UserSuppliedCommandString:
-            switch controlMessage.Body {
-            case "whoami":
-                ui.AddStringToGeneralOutput("You are yourself and all and yet nobody")
-
-            case "where am i":
-                ui.AddStringToGeneralOutput("It seems likely that you are exactly where you are")
-
-            case "quit":
-                ui.Stop()
-
-            default:
-                ui.AddStringToErrorOutput("Command not understood.  Do try again.")
-            }
-        }
-    }
+	}
 }
 ```
 
